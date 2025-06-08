@@ -85,7 +85,7 @@ class TTSDummyInputsBuilder(BaseDummyInputsBuilder[TTSProcessingInfo]):
     ) -> ProcessorInputs:
         # num_audios = mm_counts.get("audio", 0)
         return ProcessorInputs(
-            prompt="", # "0" * num_audios,
+            prompt_text="", # "0" * num_audios,
             mm_data={
                 # "audio": np.zeros((1, 1, 1, 3))
                 # "audio": [torch.zeros((1, 1024))] * num_audios
