@@ -312,7 +312,7 @@ class IndexTTS:
 
             m_start_time = time.perf_counter()
             with torch.no_grad():
-                codes, latent = await self.gpt.inference_speech(
+                codes = await self.gpt.inference_speech(
                     speech_conditioning_latent,
                     text_tokens,
                     # cond_mel_lengths=torch.tensor([auto_conditioning.shape[-1]], device=text_tokens.device)
