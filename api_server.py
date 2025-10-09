@@ -18,29 +18,26 @@ import time
 import numpy as np
 import soundfile as sf
 
-from indextts.infer_vllm import IndexTTS
+from indextts.infer_vllm_v2 import IndexTTS2
 
 tts = None
+speaker_audio_dict = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global tts
-    tts = IndexTTS(model_dir=args.model_dir, gpu_memory_utilization=args.gpu_memory_utilization)
+    global tts, speaker_audio_dict
+    tts = IndexTTS2(model_dir=args.model_dir, gpu_memory_utilization=args.gpu_memory_utilization)
 
     current_file_path = os.path.abspath(__file__)
     cur_dir = os.path.dirname(current_file_path)
     speaker_path = os.path.join(cur_dir, "assets/speaker.json")
     if os.path.exists(speaker_path):
         speaker_dict = json.load(open(speaker_path, 'r'))
-
         for speaker, audio_paths in speaker_dict.items():
-            audio_paths_ = []
-            for audio_path in audio_paths:
-                audio_paths_.append(os.path.join(cur_dir, audio_path))
-            tts.registry_speaker(speaker, audio_paths_)
+            audio_path = audio_paths[0] if audio_paths else None
+            if audio_path:
+                speaker_audio_dict[speaker] = os.path.join(cur_dir, audio_path)
     yield
-    # Clean up the ML models and release the resources
-    # ml_models.clear()
 
 app = FastAPI(lifespan=lifespan)
 
@@ -93,11 +90,20 @@ async def tts_api_url(request: Request):
     try:
         data = await request.json()
         text = data["text"]
-        audio_paths = data["audio_paths"]
-        seed = data.get("seed", 8)
+        audio_path = data.get("audio_path") or data.get("audio_paths", [None])[0]
+        
+        if not audio_path:
+            return JSONResponse(
+                status_code=400,
+                content={"status": "error", "error": "audio_path or audio_paths is required"}
+            )
 
         global tts
-        sr, wav = await tts.infer(audio_paths, text, seed=seed)
+        sr, wav = await tts.infer(
+            spk_audio_prompt=audio_path,
+            text=text,
+            output_path=None
+        )
         
         with io.BytesIO() as wav_buffer:
             sf.write(wav_buffer, wav, sr, format='WAV')
@@ -126,8 +132,19 @@ async def tts_api(request: Request):
         text = data["text"]
         character = data["character"]
 
-        global tts
-        sr, wav = await tts.infer_with_ref_audio_embed(character, text)
+        global tts, speaker_audio_dict
+        if character not in speaker_audio_dict:
+            return JSONResponse(
+                status_code=404,
+                content={"status": "error", "error": f"Speaker '{character}' not found"}
+            )
+        
+        audio_path = speaker_audio_dict[character]
+        sr, wav = await tts.infer(
+            spk_audio_prompt=audio_path,
+            text=text,
+            output_path=None
+        )
         
         with io.BytesIO() as wav_buffer:
             sf.write(wav_buffer, wav, sr, format='WAV')
@@ -173,10 +190,21 @@ async def tts_api_openai(request: Request):
         text = data["input"]
         character = data["voice"]
         #model param is omitted
-        _model = data["model"]
+        _model = data.get("model", "tts-1")
 
-        global tts
-        sr, wav = await tts.infer_with_ref_audio_embed(character, text)
+        global tts, speaker_audio_dict
+        if character not in speaker_audio_dict:
+            return JSONResponse(
+                status_code=404,
+                content={"status": "error", "error": f"Voice '{character}' not found"}
+            )
+        
+        audio_path = speaker_audio_dict[character]
+        sr, wav = await tts.infer(
+            spk_audio_prompt=audio_path,
+            text=text,
+            output_path=None
+        )
         
         with io.BytesIO() as wav_buffer:
             sf.write(wav_buffer, wav, sr, format='WAV')

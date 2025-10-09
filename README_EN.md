@@ -89,20 +89,26 @@ The first startup may take a while because it needs to compile the CUDA kernel f
 
 ## API
 
-The API interface is encapsulated using FastAPI. The startup example is as follows. Please change `--model_dir` to the actual path of your model:
+The API interface is encapsulated using FastAPI and **has been adapted for IndexTTS-2 model**.
+
+The startup example is as follows. Please change `--model_dir` to the actual path of your IndexTTS-2 model:
 
 ```bash
-python api_server.py --model_dir /your/path/to/Index-TTS
+python api_server.py --model_dir /your/path/to/IndexTTS-2-vLLM
 ```
 
 ### Startup Parameters
-- `--model_dir`: Required, path to the model weights.
+- `--model_dir`: Required, path to the IndexTTS-2 model weights.
 - `--host`: Service IP address, defaults to `0.0.0.0`.
 - `--port`: Service port, defaults to `6006`.
 - `--gpu_memory_utilization`: vLLM VRAM usage rate, defaults to `0.25`.
 
+### Documentation
+- 📖 [API Usage Guide](API_USAGE.md) - Complete API documentation and examples
+- 📖 [V1 to V2 Migration Guide](MIGRATION_V1_TO_V2.md) - Migration guide from IndexTTS-1.5 to IndexTTS-2
+
 ### Request Example
-Refer to `api_example.py`
+Refer to `api_example.py` or see [API_USAGE.md](API_USAGE.md)
 
 ### OpenAI API
 - Added `/audio/speech` API path to be compatible with the OpenAI interface.

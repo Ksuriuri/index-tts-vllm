@@ -95,20 +95,26 @@ python webui_v2.py
 
 ## API
 
-使用 fastapi 封装了 api 接口，启动示例如下，请将 `--model_dir` 改为你的模型的实际路径：
+使用 fastapi 封装了 api 接口，**已适配 IndexTTS-2 模型**。
+
+启动示例如下，请将 `--model_dir` 改为你的 IndexTTS-2 模型的实际路径：
 
 ```bash
-python api_server.py --model_dir /your/path/to/Index-TTS
+python api_server.py --model_dir /your/path/to/IndexTTS-2-vLLM
 ```
 
 ### 启动参数
-- `--model_dir`: 必填，模型权重路径
+- `--model_dir`: 必填，IndexTTS-2 模型权重路径
 - `--host`: 服务ip地址，默认为 `0.0.0.0`
 - `--port`: 服务端口，默认为 `6006`
 - `--gpu_memory_utilization`: vllm 显存占用率，默认设置为 `0.25`
 
+### 详细文档
+- 📖 [API 使用说明](API_USAGE.md) - 完整的API接口文档和示例
+- 📖 [V1 到 V2 迁移指南](MIGRATION_V1_TO_V2.md) - 从 IndexTTS-1.5 迁移到 IndexTTS-2
+
 ### 请求示例
-参考 `api_example.py`
+参考 `api_example.py` 或查看 [API_USAGE.md](API_USAGE.md)
 
 ### OpenAI API
 - 添加 /audio/speech api 路径，兼容 OpenAI 接口
