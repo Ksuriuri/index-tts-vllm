@@ -75,7 +75,7 @@ with open(os.path.join(output_dir, "output3.wav"), "wb") as f:
 
 
 
-# 4. 使用情感描述文本控制
+# 4. 使用情感描述文本控制，并且根据'text'另外生成情绪参数
 data = IndexTTS2RequestData(
     text="还是会想你，还是想登你",
     spk_audio_path="assets/jay_promptvn.wav",
@@ -85,4 +85,23 @@ data = IndexTTS2RequestData(
 
 response = requests.post(url, json=data.to_dict())
 with open(os.path.join(output_dir, "output4.wav"), "wb") as f:
+    f.write(response.content)
+
+
+
+
+# 5. 使用情感描述文本控制，不会再根据'text'另外生成情绪参数
+data = IndexTTS2RequestData(
+    text="还是会想你，还是想登你",
+    spk_audio_path="assets/jay_promptvn.wav",
+    # 这里的4没有匹配，可能需要作者写下匹配
+    emo_control_method=4,
+    # 指定情绪描述
+    emo_text="极度悲伤",
+    # 情绪烈度 原项目中的'emo_alpha'
+    emo_weight=0.6
+)
+
+response = requests.post(url, json=data.to_dict())
+with open(os.path.join(output_dir, "output5.wav"), "wb") as f:
     f.write(response.content)
