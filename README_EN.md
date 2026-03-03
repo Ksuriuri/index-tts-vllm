@@ -25,6 +25,8 @@ Inference speed improvement (Index-TTS-v1/v1.5) on a single RTX 4090:
 
 - **[2025-10-19]** Supported vllm inference for qwen0.6bemo4-merge.
 
+- **[2026-03-03]** vllm 0.16.0 support for gpt2 inference
+
 ## TODO list
 - Concurrency optimization for V2 API: Currently, only the gpt2 model inference is parallel, while other modules run serially. The s2mel inference has a large overhead (requiring 25 DiT iterations), which significantly impacts concurrency performance.
 
