@@ -48,7 +48,7 @@ conda activate index-tts-vllm
 
 ### 3. 安装 pytorch
 
-需要 pytorch 版本 2.8.0（对应 vllm 0.10.2），具体安装指令请参考：[pytorch 官网](https://pytorch.org/get-started/locally/)
+需要 pytorch 版本 2.10.0（对应 vllm 0.16.0），具体安装指令请参考：[pytorch 官网](https://pytorch.org/get-started/locally/)
 
 
 ### 4. 安装依赖

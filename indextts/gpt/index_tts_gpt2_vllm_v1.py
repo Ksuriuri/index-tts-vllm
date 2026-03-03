@@ -8,14 +8,15 @@ from transformers import BatchFeature
 
 from vllm.compilation.decorators import support_torch_compile
 from vllm.config import CacheConfig, VllmConfig
+from vllm.config.multimodal import BaseDummyOptions
 from vllm.distributed.parallel_state import (
     get_pp_group, get_tensor_model_parallel_world_size)
 from vllm.model_executor.layers.logits_processor import LogitsProcessor
-from vllm.model_executor.layers.sampler import SamplerOutput, get_sampler
+# from vllm.model_executor.layers.sampler import SamplerOutput, get_sampler
 from vllm.model_executor.layers.vocab_parallel_embedding import (
     ParallelLMHead, VocabParallelEmbedding)
 from vllm.model_executor.model_loader.weight_utils import default_weight_loader
-from vllm.model_executor.sampling_metadata import SamplingMetadata
+# from vllm.model_executor.sampling_metadata import SamplingMetadata
 from vllm.sequence import IntermediateTensors
 from vllm.model_executor.models.interfaces import SupportsPP
 
@@ -23,19 +24,19 @@ from vllm.model_executor.models.utils import (
     is_pp_missing_parameter,
     make_empty_intermediate_tensors_factory, make_layers,
     maybe_prefix,
-    merge_multimodal_embeddings
+    _merge_multimodal_embeddings
 )
 
 from vllm.model_executor.models.gpt2 import GPT2Block  #, GPT2MLP, GPT2Attention
 
 from vllm.model_executor.models.interfaces import SupportsMultiModal, MultiModalEmbeddings
-from vllm.multimodal import MULTIMODAL_REGISTRY
+from vllm.multimodal import MULTIMODAL_REGISTRY, ModalityData
 from vllm.multimodal.inputs import MultiModalFieldConfig, MultiModalKwargsItems
 from vllm.multimodal.processing import (BaseMultiModalProcessor, PromptReplacement,
                                         BaseProcessingInfo, PromptInsertion,
                                         PromptUpdate, PromptUpdateDetails)
-from vllm.multimodal.profiling import BaseDummyInputsBuilder
-from vllm.multimodal.parse import (MultiModalDataParser, DictEmbeddingItems,
+from vllm.multimodal.processing import BaseDummyInputsBuilder
+from vllm.multimodal.parse import (AudioItem, MultiModalDataParser, DictEmbeddingItems,
                                    ModalityDataItems, MultiModalDataItems)
 # from vllm.model_executor.models.utils import merge_multimodal_embeddings
 
@@ -47,13 +48,21 @@ class GPT2TTSProcessingInfo(BaseProcessingInfo):
     def get_supported_mm_limits(self) -> Mapping[str, Optional[int]]:
         # 声明我们支持 'audio' 模态
         return {"audio": None}
+    
+    def get_data_parser(self) -> MultiModalDataParser:
+        return GPT2TTSDataParser()
 
 class GPT2TTSDummyInputsBuilder(BaseDummyInputsBuilder[GPT2TTSProcessingInfo]):
     def get_dummy_text(self, mm_counts: Mapping[str, int]) -> str:
         num_audios = mm_counts.get("audio", 0)
         return PLACEHOLDER_TOKEN * num_audios
 
-    def get_dummy_mm_data(self, seq_len: int, mm_counts: Mapping[str, int]) -> Dict[str, Any]:
+    def get_dummy_mm_data(
+        self,
+        seq_len: int,
+        mm_counts: Mapping[str, int],
+        mm_options: Mapping[str, BaseDummyOptions] | None = None,
+    ) -> Dict[str, Any]:
         num_items = mm_counts.get("audio", 0)
         if num_items == 0:
             return {}
@@ -73,8 +82,8 @@ class GPT2TTSDataParser(MultiModalDataParser):
     """
     def _parse_audio_data(
         self,
-        data: Union[Dict[str, torch.Tensor], Any],
-    ) -> Optional[ModalityDataItems[Any, Any]]:
+        data: ModalityData[AudioItem],
+    ) -> ModalityDataItems[Any, Any] | None:
         """
         当 vLLM 看到 "audio" 这个 key 时，会调用这个函数。
         'data' 参数是 "audio" key 对应的值。
@@ -105,9 +114,6 @@ class GPT2TTSMultiModalProcessor(BaseMultiModalProcessor[GPT2TTSProcessingInfo])
         return dict(
             audio_embeds=MultiModalFieldConfig.batched("audio"),
         )
-    
-    def _get_data_parser(self) -> MultiModalDataParser:
-        return GPT2TTSDataParser()
 
     def _get_prompt_updates(
         self,
@@ -165,7 +171,7 @@ class GPT2Model(nn.Module):
             make_empty_intermediate_tensors_factory(["hidden_states"],
                                                     config.n_embd))
 
-    def get_input_embeddings(self, input_ids: torch.Tensor) -> torch.Tensor:
+    def embed_input_ids(self, input_ids: torch.Tensor) -> torch.Tensor:
         return self.wte(input_ids)
 
     def forward(
@@ -264,7 +270,7 @@ class GPT2TTSModel(nn.Module, SupportsPP, SupportsMultiModal):
                                       bias=True)
 
         self.logits_processor = LogitsProcessor(config.vocab_size)
-        self.sampler = get_sampler()
+        # self.sampler = get_sampler()
         self.make_empty_intermediate_tensors = (
             self.transformer.make_empty_intermediate_tensors)
 
@@ -272,10 +278,10 @@ class GPT2TTSModel(nn.Module, SupportsPP, SupportsMultiModal):
     def get_language_model(self) -> torch.nn.Module:
         return self.transformer
 
-    def get_multimodal_embeddings(
+    def embed_multimodal(
         self,
         **kwargs: object,
-    ) -> MultiModalEmbeddings:
+    ) -> MultiModalEmbeddings | None:
         # 从 kwargs 中提取我们的 embedding
         audio_embeds = kwargs.get("audio_embeds")
 
@@ -296,10 +302,13 @@ class GPT2TTSModel(nn.Module, SupportsPP, SupportsMultiModal):
 
         return processed_embeds
 
-    def get_input_embeddings(
+    def embed_input_ids(
         self,
         input_ids: torch.Tensor,
-        multimodal_embeddings: Optional[MultiModalEmbeddings] = None,
+        multimodal_embeddings: MultiModalEmbeddings | None = None,
+        *,
+        is_multimodal: torch.Tensor | None = None,
+        handle_oov_mm_token: bool = False,
     ) -> torch.Tensor:
         # # 这个方法现在用于合并文本和多模态 embedding
         # # 在我们的 prefill 场景下，input_ids 是假的，我们只关心 multimodal_embeddings
@@ -315,9 +324,11 @@ class GPT2TTSModel(nn.Module, SupportsPP, SupportsMultiModal):
         inputs_embeds = self.audio_emb(input_ids)
         if multimodal_embeddings is not None \
             and len(multimodal_embeddings) != 0:
-            inputs_embeds = merge_multimodal_embeddings(
-                input_ids, inputs_embeds, multimodal_embeddings,
-                PLACEHOLDER_TOKEN_ID)
+            inputs_embeds = _merge_multimodal_embeddings(
+                inputs_embeds=inputs_embeds, 
+                multimodal_embeddings=multimodal_embeddings,
+                is_multimodal=input_ids == PLACEHOLDER_TOKEN_ID
+            )
         return inputs_embeds
 
     def forward(
@@ -351,19 +362,17 @@ class GPT2TTSModel(nn.Module, SupportsPP, SupportsMultiModal):
     def compute_logits(
         self,
         hidden_states: torch.Tensor,
-        sampling_metadata: SamplingMetadata,
-    ) -> Optional[torch.Tensor]:
-        logits = self.logits_processor(self.lm_head, hidden_states,
-                                       sampling_metadata)
+    ) -> torch.Tensor | None:
+        logits = self.logits_processor(self.lm_head, hidden_states)
         return logits
 
-    def sample(
-        self,
-        logits: torch.Tensor,
-        sampling_metadata: SamplingMetadata,
-    ) -> Optional[SamplerOutput]:
-        next_tokens = self.sampler(logits, sampling_metadata)
-        return next_tokens
+    # def sample(
+    #     self,
+    #     logits: torch.Tensor,
+    #     sampling_metadata: SamplingMetadata,
+    # ) -> Optional[SamplerOutput]:
+    #     next_tokens = self.sampler(logits, sampling_metadata)
+    #     return next_tokens
 
     def load_weights(self, weights: Iterable[Tuple[str, torch.Tensor]]) -> Set[str]:
         params_dict = dict(self.named_parameters(remove_duplicate=False))
