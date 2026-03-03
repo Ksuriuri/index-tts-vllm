@@ -25,6 +25,8 @@
 
 - **[2025-10-19]** 支持 qwen0.6bemo4-merge 的 vllm 推理
 
+- **[2026-03-03]** vllm 0.16.0 support for gpt2 inference
+
 ## TODO list
 - V2 api 的并发优化：目前只有 gpt2 模型的推理是并行的，其他模块均是串行，而其中 s2mel 的推理开销大（需要 DiT 迭代 25 步），十分影响并发性能
 
