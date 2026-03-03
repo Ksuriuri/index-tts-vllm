@@ -1,4 +1,4 @@
-vllm==0.10.2
+vllm==0.16.0
 descript-audiotools==0.7.2
 matplotlib==3.8.2
 omegaconf

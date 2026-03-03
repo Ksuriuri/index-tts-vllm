@@ -48,7 +48,7 @@ conda activate index-tts-vllm
 
 ### 3. Install PyTorch
 
-PyTorch version 2.8.0 is required (corresponding to vllm 0.10.2). For specific installation instructions, please refer to the [PyTorch official website](https://pytorch.org/get-started/locally/).
+PyTorch version 2.10.0 is required (corresponding to vllm 0.16.0). For specific installation instructions, please refer to the [PyTorch official website](https://pytorch.org/get-started/locally/).
 
 
 ### 4. Install dependencies

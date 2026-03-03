@@ -109,6 +109,8 @@ class IndexTTS:
             dtype="auto",
             gpu_memory_utilization=gpu_memory_utilization,
             # enforce_eager=True,
+            async_scheduling=True,
+            enable_mm_embeds=True
         )
         indextts_vllm = AsyncLLM.from_engine_args(engine_args)
 
