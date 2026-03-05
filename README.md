@@ -54,8 +54,10 @@ conda activate index-tts-vllm
 
 
 ### 4. 安装依赖
+使用强制覆盖的方式进行依赖安装，规避vllm 0.16.0与descript-audiotools 0.7.2版本中protobuf的版本冲突问题
 ```bash
-pip install -r requirements.txt
+pip install uv
+uv pip install -r requirements.txt -c overrides.txt
 ```
 
 

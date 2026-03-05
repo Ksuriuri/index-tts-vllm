@@ -54,8 +54,10 @@ PyTorch version 2.10.0 is required (corresponding to vllm 0.16.0). For specific 
 
 
 ### 4. Install dependencies
+Install dependencies with forced overrides to resolve the protobuf version conflict between vllm 0.16.0 and descript-audiotools 0.7.2.
 ```bash
-pip install -r requirements.txt
+pip install uv
+uv pip install -r requirements.txt -c overrides.txt
 ```
 
 
