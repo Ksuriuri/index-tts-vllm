@@ -48,20 +48,15 @@ conda activate index-tts-vllm
 ```
 
 
-### 3. 安装 pytorch
-
-需要 pytorch 版本 2.10.0（对应 vllm 0.16.0），具体安装指令请参考：[pytorch 官网](https://pytorch.org/get-started/locally/)
-
-
-### 4. 安装依赖
-使用强制覆盖的方式进行依赖安装，规避vllm 0.16.0与descript-audiotools 0.7.2版本中protobuf的版本冲突问题
+### 3. 安装依赖
+使用强制覆盖的方式进行依赖安装，规避vllm 0.16.0与descript-audiotools 0.7.2版本中protobuf的版本冲突问题。
 ```bash
 pip install uv
 uv pip install -r requirements.txt -c overrides.txt
 ```
 
 
-### 5. 下载模型权重
+### 4. 下载模型权重
 
 #### 自动下载（推荐）
 
@@ -90,7 +85,7 @@ modelscope download --model kusuriuri/IndexTTS-2-vLLM --local_dir ./checkpoints/
 bash convert_hf_format.sh /path/to/your/model_dir
 ```
 
-### 6. webui 启动！
+### 5. webui 启动！
 
 运行对应版本（第一次启动可能会久一些，因为要对 bigvgan 进行 cuda 核编译）：
 

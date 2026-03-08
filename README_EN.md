@@ -48,12 +48,7 @@ conda activate index-tts-vllm
 ```
 
 
-### 3. Install PyTorch
-
-PyTorch version 2.10.0 is required (corresponding to vllm 0.16.0). For specific installation instructions, please refer to the [PyTorch official website](https://pytorch.org/get-started/locally/).
-
-
-### 4. Install dependencies
+### 3. Install dependencies
 Install dependencies with forced overrides to resolve the protobuf version conflict between vllm 0.16.0 and descript-audiotools 0.7.2.
 ```bash
 pip install uv
@@ -61,7 +56,7 @@ uv pip install -r requirements.txt -c overrides.txt
 ```
 
 
-### 5. Download model weights
+### 4. Download model weights
 
 #### Automatic Download (Recommended)
 
@@ -90,7 +85,7 @@ You can use `convert_hf_format.sh` to convert the official weight files yourself
 bash convert_hf_format.sh /path/to/your/model_dir
 ```
 
-### 6. Launch the web UI!
+### 5. Launch the web UI!
 
 Run the corresponding version (the first launch may take longer due to CUDA kernel compilation for bigvgan):
 
