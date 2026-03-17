@@ -62,6 +62,8 @@ uv pip install -r requirements.txt -c overrides.txt
 
 选择对应版本的模型权重下载到 `checkpoints/` 路径下：
 
+**From ModelScope（国内推荐）：**
+
 ```bash
 # Index-TTS
 modelscope download --model kusuriuri/Index-TTS-vLLM --local_dir ./checkpoints/Index-TTS-vLLM
@@ -73,9 +75,17 @@ modelscope download --model kusuriuri/Index-TTS-1.5-vLLM --local_dir ./checkpoin
 modelscope download --model kusuriuri/IndexTTS-2-vLLM --local_dir ./checkpoints/IndexTTS-2-vLLM
 ```
 
+**From Hugging Face：**
+
+```bash
+# IndexTTS-2
+huggingface-cli download ksuriuri/IndexTTS-2-vLLM --local-dir ./checkpoints/IndexTTS-2-vLLM
+```
+
 #### 手动下载
 
 - ModelScope：[Index-TTS](https://www.modelscope.cn/models/kusuriuri/Index-TTS-vLLM) | [IndexTTS-1.5](https://www.modelscope.cn/models/kusuriuri/Index-TTS-1.5-vLLM) | [IndexTTS-2](https://www.modelscope.cn/models/kusuriuri/IndexTTS-2-vLLM)
+- Hugging Face：[IndexTTS-2](https://huggingface.co/ksuriuri/IndexTTS-2-vLLM)
 
 #### 自行转换原权重（可选，不推荐）
 

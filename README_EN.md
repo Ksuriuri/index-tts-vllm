@@ -62,6 +62,8 @@ uv pip install -r requirements.txt -c overrides.txt
 
 Download the corresponding version of the model weights to the `checkpoints/` directory:
 
+**From ModelScope (recommended for users in China):**
+
 ```bash
 # Index-TTS
 modelscope download --model kusuriuri/Index-TTS-vLLM --local_dir ./checkpoints/Index-TTS-vLLM
@@ -73,9 +75,17 @@ modelscope download --model kusuriuri/Index-TTS-1.5-vLLM --local_dir ./checkpoin
 modelscope download --model kusuriuri/IndexTTS-2-vLLM --local_dir ./checkpoints/IndexTTS-2-vLLM
 ```
 
+**From Hugging Face:**
+
+```bash
+# IndexTTS-2
+huggingface-cli download ksuriuri/IndexTTS-2-vLLM --local-dir ./checkpoints/IndexTTS-2-vLLM
+```
+
 #### Manual Download
 
 - ModelScope: [Index-TTS](https://www.modelscope.cn/models/kusuriuri/Index-TTS-vLLM) | [IndexTTS-1.5](https://www.modelscope.cn/models/kusuriuri/Index-TTS-1.5-vLLM) | [IndexTTS-2](https://www.modelscope.cn/models/kusuriuri/IndexTTS-2-vLLM)
+- Hugging Face: [IndexTTS-2](https://huggingface.co/ksuriuri/IndexTTS-2-vLLM)
 
 #### Convert original weights yourself (Optional, not recommended)
 
