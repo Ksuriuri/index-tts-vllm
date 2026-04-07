@@ -140,7 +140,11 @@ python api_server_v2.py
 For details, see: [createSpeech](https://platform.openai.com/docs/api-reference/audio/createSpeech)
 
 ## New Features
-- **v1/v1.5:** Supports multi-character audio mixing: You can input multiple reference audios, and the TTS output voice will be a mix of these reference audios. (Inputting multiple reference audios may lead to an unstable output voice; you can try multiple times to get a satisfactory voice and then use it as a reference audio).
+- **v1/v1.5:** Supports multi-character audio mixing: You can input multiple reference audios, and the TTS output voice will be a mix of these reference audios.
+- **IndexTTS2 (vLLM):** Inference Optimization & Emotion Reference
+  - **Inference Optimization**: Added `precompute_speaker` and `precompute_emotion` interfaces to support feature precomputation and caching for reference audios. In batch synthesis or high-frequency calling scenarios, it avoids redundant feature extraction, significantly reducing first-token latency and RTF.
+  - **Emotion Reference**: Allows explicitly passing an `emo_audio_prompt` during inference (via API or `infer` method) and supports dynamic emotion intensity adjustment through `emo_alpha`.
+ (Inputting multiple reference audios may lead to an unstable output voice; you can try multiple times to get a satisfactory voice and then use it as a reference audio).
 
 ## Performance
 Word Error Rate (WER) Results for IndexTTS and Baseline Models on the [**seed-test**](https://github.com/BytedanceSpeech/seed-tts-eval)
