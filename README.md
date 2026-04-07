@@ -141,6 +141,9 @@ python api_server_v2.py
 
 ## 新特性
 - **v1/v1.5:** 支持多角色音频混合：可以传入多个参考音频，TTS 输出的角色声线为多个参考音频的混合版本（输入多个参考音频会导致输出的角色声线不稳定，可以抽卡抽到满意的声线再作为参考音频）
+- **IndexTTS2 (vLLM):** 推理优化与情绪参考
+  - **推理优化**: 新增 `precompute_speaker` 与 `precompute_emotion` 接口，支持对参考音频特征进行预计算与缓存。在批量合成或高频调用场景下，可避免重复特征提取，显著降低首字延迟与 RTF。
+  - **情绪参考**: 允许在推理时显式传入 `emo_audio_prompt` 情绪参考音频（通过 API 或 `infer` 方法），并支持通过 `emo_alpha` 动态调节情绪强度。
 
 ## 性能
 Word Error Rate (WER) Results for IndexTTS and Baseline Models on the [**seed-test**](https://github.com/BytedanceSpeech/seed-tts-eval)

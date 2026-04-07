@@ -203,6 +203,60 @@ class IndexTTS2:
         self.mel_fn = lambda x: mel_spectrogram(x, **mel_fn_args)
 
         self.speaker_dict = {}
+        self.feature_extractor = SeamlessM4TFeatureExtractor.from_pretrained(
+            os.path.join(self.model_dir, "w2v-bert-2.0")
+        )
+
+    @torch.no_grad()
+    def precompute_speaker(self, spk_audio_prompt):
+        """预计算并缓存 Speaker 音频的全部中间特征"""
+        logger.info(f">> Precomputing speaker features for: {spk_audio_prompt}")
+        audio, sr = librosa.load(spk_audio_prompt)
+        audio = torch.tensor(audio).unsqueeze(0)
+        audio_22k = torchaudio.transforms.Resample(sr, 22050)(audio)
+        audio_16k = torchaudio.transforms.Resample(sr, 16000)(audio)
+
+        inputs = self.feature_extractor(audio_16k, sampling_rate=16000, return_tensors="pt")
+        input_features = inputs["input_features"].to(self.device)
+        attention_mask = inputs["attention_mask"].to(self.device)
+        spk_cond_emb = self.get_emb(input_features, attention_mask)
+
+        _, S_ref = self.semantic_codec.quantize(spk_cond_emb)
+        ref_mel = self.mel_fn(audio_22k.to(spk_cond_emb.device).float())
+        ref_target_lengths = torch.LongTensor([ref_mel.size(2)]).to(ref_mel.device)
+        feat = torchaudio.compliance.kaldi.fbank(audio_16k.to(ref_mel.device),
+                                                    num_mel_bins=80,
+                                                    dither=0,
+                                                    sample_frequency=16000)
+        feat = feat - feat.mean(dim=0, keepdim=True)
+        style = self.campplus_model(feat.unsqueeze(0))
+
+        prompt_condition = self.s2mel.models['length_regulator'](S_ref,
+                                                                    ylens=ref_target_lengths,
+                                                                    n_quantizers=3,
+                                                                    f0=None)[0]
+        
+        return {
+            "spk_cond_emb": spk_cond_emb,
+            "S_ref": S_ref,
+            "ref_mel": ref_mel,
+            "style": style,
+            "prompt_condition": prompt_condition
+        }
+
+    @torch.no_grad()
+    def precompute_emotion(self, emo_audio_prompt):
+        """预计算并缓存 Emotion 音频的特征"""
+        logger.info(f">> Precomputing emotion features for: {emo_audio_prompt}")
+        emo_audio, _ = librosa.load(emo_audio_prompt, sr=16000)
+        emo_inputs = self.feature_extractor(emo_audio, sampling_rate=16000, return_tensors="pt")
+        emo_input_features = emo_inputs["input_features"].to(self.device)
+        emo_attention_mask = emo_inputs["attention_mask"].to(self.device)
+        emo_cond_emb = self.get_emb(emo_input_features, emo_attention_mask)
+        
+        return {
+            "emo_cond_emb": emo_cond_emb
+        }
 
     @torch.no_grad()
     def get_emb(self, input_features, attention_mask):
@@ -242,7 +296,9 @@ class IndexTTS2:
               emo_audio_prompt=None, emo_alpha=1.0,
               emo_vector=None,
               use_emo_text=False, emo_text=None, use_random=False, interval_silence=200,
-              verbose=False, max_text_tokens_per_sentence=120, **generation_kwargs):
+              verbose=False, max_text_tokens_per_sentence=120, 
+              spk_cache=None, emo_cache=None,
+              **generation_kwargs):
         logger.info(">> start inference...")
         start_time = time.perf_counter()
 
@@ -268,32 +324,37 @@ class IndexTTS2:
             emo_alpha = 1.0
             # assert emo_alpha == 1.0
 
-        audio, sr = librosa.load(spk_audio_prompt)
-        audio = torch.tensor(audio).unsqueeze(0)
-        audio_22k = torchaudio.transforms.Resample(sr, 22050)(audio)
-        audio_16k = torchaudio.transforms.Resample(sr, 16000)(audio)
+        if spk_cache is not None:
+            spk_cond_emb = spk_cache["spk_cond_emb"]
+            S_ref = spk_cache["S_ref"]
+            ref_mel = spk_cache["ref_mel"]
+            style = spk_cache["style"]
+            prompt_condition = spk_cache["prompt_condition"]
+        else:
+            audio, sr = librosa.load(spk_audio_prompt)
+            audio = torch.tensor(audio).unsqueeze(0)
+            audio_22k = torchaudio.transforms.Resample(sr, 22050)(audio)
+            audio_16k = torchaudio.transforms.Resample(sr, 16000)(audio)
 
-        inputs = self.extract_features(audio_16k, sampling_rate=16000, return_tensors="pt")
-        input_features = inputs["input_features"]
-        attention_mask = inputs["attention_mask"]
-        input_features = input_features.to(self.device)
-        attention_mask = attention_mask.to(self.device)
-        spk_cond_emb = self.get_emb(input_features, attention_mask)
+            inputs = self.feature_extractor(audio_16k, sampling_rate=16000, return_tensors="pt")
+            input_features = inputs["input_features"].to(self.device)
+            attention_mask = inputs["attention_mask"].to(self.device)
+            spk_cond_emb = self.get_emb(input_features, attention_mask)
 
-        _, S_ref = self.semantic_codec.quantize(spk_cond_emb)
-        ref_mel = self.mel_fn(audio_22k.to(spk_cond_emb.device).float())
-        ref_target_lengths = torch.LongTensor([ref_mel.size(2)]).to(ref_mel.device)
-        feat = torchaudio.compliance.kaldi.fbank(audio_16k.to(ref_mel.device),
-                                                    num_mel_bins=80,
-                                                    dither=0,
-                                                    sample_frequency=16000)
-        feat = feat - feat.mean(dim=0, keepdim=True)  # feat2另外一个滤波器能量组特征[922, 80]
-        style = self.campplus_model(feat.unsqueeze(0))  # 参考音频的全局style2[1,192]
+            _, S_ref = self.semantic_codec.quantize(spk_cond_emb)
+            ref_mel = self.mel_fn(audio_22k.to(spk_cond_emb.device).float())
+            ref_target_lengths = torch.LongTensor([ref_mel.size(2)]).to(ref_mel.device)
+            feat = torchaudio.compliance.kaldi.fbank(audio_16k.to(ref_mel.device),
+                                                        num_mel_bins=80,
+                                                        dither=0,
+                                                        sample_frequency=16000)
+            feat = feat - feat.mean(dim=0, keepdim=True)
+            style = self.campplus_model(feat.unsqueeze(0))
 
-        prompt_condition = self.s2mel.models['length_regulator'](S_ref,
-                                                                    ylens=ref_target_lengths,
-                                                                    n_quantizers=3,
-                                                                    f0=None)[0]
+            prompt_condition = self.s2mel.models['length_regulator'](S_ref,
+                                                                        ylens=ref_target_lengths,
+                                                                        n_quantizers=3,
+                                                                        f0=None)[0]
 
         if emo_vector is not None:
             weight_vector = torch.tensor(emo_vector).to(self.device)
@@ -308,13 +369,14 @@ class IndexTTS2:
             emovec_mat = torch.sum(emovec_mat, 0)
             emovec_mat = emovec_mat.unsqueeze(0)
 
-        emo_audio, _ = librosa.load(emo_audio_prompt, sr=16000)
-        emo_inputs = self.extract_features(emo_audio, sampling_rate=16000, return_tensors="pt")
-        emo_input_features = emo_inputs["input_features"]
-        emo_attention_mask = emo_inputs["attention_mask"]
-        emo_input_features = emo_input_features.to(self.device)
-        emo_attention_mask = emo_attention_mask.to(self.device)
-        emo_cond_emb = self.get_emb(emo_input_features, emo_attention_mask)
+        if emo_cache is not None:
+            emo_cond_emb = emo_cache["emo_cond_emb"]
+        else:
+            emo_audio, _ = librosa.load(emo_audio_prompt, sr=16000)
+            emo_inputs = self.feature_extractor(emo_audio, sampling_rate=16000, return_tensors="pt")
+            emo_input_features = emo_inputs["input_features"].to(self.device)
+            emo_attention_mask = emo_inputs["attention_mask"].to(self.device)
+            emo_cond_emb = self.get_emb(emo_input_features, emo_attention_mask)
 
         text_tokens_list = self.tokenizer.tokenize(text)
         sentences = self.tokenizer.split_sentences(text_tokens_list, max_text_tokens_per_sentence)
